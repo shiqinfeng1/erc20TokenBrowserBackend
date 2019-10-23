@@ -8,13 +8,14 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/shiqinfeng1/erc20TokenBrowserBackend/types"
 	"github.com/shiqinfeng1/erc20TokenBrowserBackend/utiles"
-	//"time"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
@@ -77,7 +78,11 @@ func refreshTokenAddress() {
 	log.Println("[refreshTokenAddress]Start Refresh ...")
 	c := time.Tick(time.Duration(5) * time.Second)
 	for {
-		tokenInfo := utiles.GetTokenAddressesInSQL()
+		tokenInfo, err := utiles.GetTokenAddressesInSQL()
+		if err != nil {
+			log.Printf("[refresh Token Address] Get TokenAddresses InSQL Fail:%v\n", err)
+			continue
+		}
 		for _, info := range tokenInfo {
 			if info.Status != "" {
 				break
@@ -86,7 +91,10 @@ func refreshTokenAddress() {
 				//查询token信息
 				symbol, supply, decimals, err := queryTokenInfo(info.Address)
 				if err != nil {
-					utiles.UpdateTokenStatus(info.Address, err.Error())
+					err2 := utiles.UpdateTokenStatus(info.Address, err.Error())
+					if err2 != nil {
+						log.Printf("[refresh Token Address] Update Token Status Fail:%v\n", err2)
+					}
 					break
 				}
 
@@ -95,11 +103,15 @@ func refreshTokenAddress() {
 				utiles.CreateTokenBalanceTable(symbol)
 				utiles.CreateTransferTable(symbol)
 				// newTokenTransactionTable("tokenTransaction" + symbol)
-				utiles.UpdateTokenInfo(symbol, info.Address, symbol, supply.String(), decimals.String())
+				err3 := utiles.UpdateTokenInfo(symbol, info.Address, symbol, supply.String(), decimals.String())
+				if err3 != nil {
+					log.Printf("[refresh Token Address] Update TokenInfo Fail:%+v\n", err3)
+					break
+				}
 				info.Symbol = symbol
 
 				tokenInfos = append(tokenInfos, info)
-				log.Printf("[refreshTokenAddress]Got New Token:%+v\n", info)
+				log.Printf("[refresh Token Address] Got New Token:%+v\n", info)
 				newTokenChan <- info
 			}
 		}
@@ -114,7 +126,10 @@ func checkBlockFork(symbol string, lastCheckedBlock, latestBlockNumber uint64) u
 	}
 	// 最后检查的区块高度比最新的区块高度小，丢弃超过最新高度的数据
 	if latestBlockNumber < lastCheckedBlock {
-		utiles.DeleteTokenTransfer(symbol, latestBlockNumber)
+		err := utiles.DeleteTokenTransfer(symbol, latestBlockNumber)
+		if err != nil {
+			fmt.Printf("[check Block Fork] 1.Delete TokenTransfer:Fial %v\n", err)
+		}
 		return latestBlockNumber - 1
 	}
 	// 最后检查的区块和最新区块高度相差12以上
@@ -126,15 +141,21 @@ func checkBlockFork(symbol string, lastCheckedBlock, latestBlockNumber uint64) u
 		fmt.Println("检查块", i)
 		// 如果tokenTransfer表中存在该高度的交易记录，和链上的区块hash进行比较，检查是否分叉
 		dbhash, err := utiles.GetBlockHashInSQL(symbol, i)
-		checkErr(err)
+		if err != nil {
+			log.Printf("[check Block Fork] Get BlockHash InSQL Fail:%v\n", err)
+			continue
+		}
 		if dbhash == "" {
 			continue
 		}
 
 		b := chainNode.Block(i)
 		if dbhash != b.Hash {
-			fmt.Println("change the ", i, "block")
-			utiles.DeleteTokenTransfer(symbol, i)
+			log.Println("change the ", i, "block")
+			err := utiles.DeleteTokenTransfer(symbol, i)
+			if err != nil {
+				fmt.Printf("[check Block Fork] 2.Delete TokenTransfer:Fial %v\n", err)
+			}
 			return i - 1
 		}
 	}
@@ -181,11 +202,15 @@ func grabTransferLogByIterBlock(from, to uint64) {
 
 func grabTransferLogByLogFilter(token types.TokenInfo, ch chan []string) {
 	//数据库中解析过的最新高度
-	lastBlockNumber, _ := utiles.GetBlockNumberInSQL(token.Symbol)
+	lastBlockNumber, err := utiles.GetBlockNumberInSQL(token.Symbol)
+	if err != nil {
+		// log.Printf("[grab Transfer Log] Get BlockNumber InSQL Fail:%v\n", err)
+		return
+	}
 	//链最新高度
 	latestBlockNumber, err := chainNode.GetBlockNumber()
 	if err != nil {
-		log.Printf("[grabTransferLog]Get blockNumber Exit:%+v", err)
+		log.Printf("[grab Transfer Log] Get blockNumber Fail:%v\n", err)
 		return
 	}
 	//根据最新高度检查链是否存在分叉，如果存在，需要删除分叉点后的数据，并重新同步
@@ -210,9 +235,13 @@ func grabTransferLogByLogFilter(token types.TokenInfo, ch chan []string) {
 		number, _ := strconv.ParseUint(event.BlockNumber, 0, 64)
 		b := chainNode.Block(number)
 		//检查交易是否重复
-		amount, _ := utiles.CheckIfExsistTokenTransferByHashInSQL(token.Symbol, to, event.TransactionHash)
+		amount, err := utiles.CheckIfExsistTokenTransferByHashInSQL(token.Symbol, to, event.TransactionHash)
+		if err != nil {
+			log.Printf("Check If Exsist TokenTransfer ByHashInSQL Fail:%v\n", err)
+			continue
+		}
 		if amount == 0 { //不存在该交易
-			utiles.InsertTokenTransfer(
+			err := utiles.InsertTokenTransfer(
 				token.Symbol,
 				event.BlockNumber,
 				b.Hash,
@@ -220,6 +249,9 @@ func grabTransferLogByLogFilter(token types.TokenInfo, ch chan []string) {
 				from,
 				to,
 				value.String())
+			if err != nil {
+				log.Printf("Insert TokenTransfer Fail:%v\n", err)
+			}
 		} else {
 			log.Printf("TxHash:%v Is Already Exsist!!!\n", event.TransactionHash)
 		}
@@ -229,7 +261,7 @@ func grabTransferLogByLogFilter(token types.TokenInfo, ch chan []string) {
 
 //3秒检查一次数据库表tokendata.TokenAddress
 func refreshTokenLog(token types.TokenInfo, ch chan []string) {
-	log.Printf("[refreshLog]Start Refresh ... %+v", token)
+	log.Printf("[refreshLog]Start Refresh ... %+v\n", token)
 	c1 := time.Tick(time.Duration(3) * time.Second)
 	for {
 		select {
@@ -241,12 +273,16 @@ func refreshTokenLog(token types.TokenInfo, ch chan []string) {
 func refreshTokenBalance(token types.TokenInfo, ch chan []string) {
 	var holders []string
 	var balance []uint64
-	log.Printf("[refreshTokenBalance]Start Refresh ... %+v\n", token)
+	log.Printf("[refresh Token Balance] Start Refresh ... %+v\n", token)
 	c := time.Tick(time.Duration(60) * time.Second)
 	for {
 		select {
 		case <-c:
-			holders, balance = utiles.GetTokenHoldersInSQL(token.Symbol)
+			h, b, err := utiles.GetTokenHoldersInSQL(token.Symbol)
+			if err != nil {
+				log.Printf("[refresh Token Balance] Get Token Holders InSQL Fail %v\n", err)
+			}
+			holders, balance = h, b
 		case holders = <-ch:
 			balance = make([]uint64, len(holders))
 		}
@@ -255,10 +291,13 @@ func refreshTokenBalance(token types.TokenInfo, ch chan []string) {
 			if b, err := queryTokenBalance(token.Address, holder); err == nil {
 				if b.Uint64() == 0 || b.Uint64() != balance[i] {
 					log.Printf("Got %v At ## %v ## Balance. Old=%v New=%v", holder, token.Symbol, balance[i], b.Uint64())
-					utiles.UpdateTokenBalance(token.Symbol, holder, b.Uint64())
+					err := utiles.UpdateTokenBalance(token.Symbol, holder, b.Uint64())
+					if err != nil {
+						log.Printf("[refresh Token Balance] Update Token Balance Fail:%v\n", err)
+					}
 				}
 			} else {
-				fmt.Printf("refreshTokenBalance.queryTokenBalance Fail:%v", err)
+				log.Printf("[refresh Token Balance] query Token Balance Fail:%v\n", err)
 			}
 		}
 	}
@@ -266,7 +305,15 @@ func refreshTokenBalance(token types.TokenInfo, ch chan []string) {
 
 func init() {
 	flag.Parse()
-	utiles.InitMysql(*dbserver, *reset)
+	fmt.Print("Enter DB Password: ")
+	bytePassword, err := terminal.ReadPassword(0)
+	if err == nil {
+		fmt.Println("\nPassword typed: " + string(bytePassword))
+	}
+	password := string(bytePassword)
+	password = strings.TrimSpace(password)
+	utiles.InitMysql(*dbserver, password, *reset)
+
 	chainNode = utiles.NewChainNode(*wtcnode)
 }
 
@@ -281,7 +328,7 @@ func main() {
 	go refreshTokenAddress()
 
 	//如果有新的token注册
-	log.Printf("Wait New Token Register ...")
+	log.Printf("Wait New Token Register ...\n")
 	for {
 		select {
 		case token := <-newTokenChan:
