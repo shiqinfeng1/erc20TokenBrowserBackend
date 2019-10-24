@@ -19,6 +19,10 @@ type TokenTxnListParams struct {
 	Token string     `json:"token"`
 	Page  PageParams `json:"page"`
 }
+type HolderBalanceParams struct {
+	Token  string `json:"token"`
+	Holder string `json:"holder"`
+}
 
 // PageParams 分页参数
 type PageParams struct {

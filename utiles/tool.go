@@ -12,9 +12,15 @@ func HexStoTenSWith0x(value string) string {
 	return bignumber.String()
 }
 
-func Hextoten(num string) int64 {
+func Tentoten(num string) uint64 {
+	if s, err := strconv.ParseUint(num, 10, 64); err == nil {
+		return s
+	}
+	return 0
+}
+func Hextoten(num string) uint64 {
 	v := num[2:]
-	if s, err := strconv.ParseInt(v, 16, 32); err == nil {
+	if s, err := strconv.ParseUint(v, 16, 64); err == nil {
 		return s
 	}
 	return 0
@@ -28,10 +34,10 @@ func HexStoTenBigInt(value string) *big.Int {
 }
 
 //HexStoTenSAndDiv10e9 HexStoTenSAndDiv10e9
-func HexStoTenSAndDiv10e9(value string) int64 {
+func HexStoTenSAndDiv10e9(value string) uint64 {
 	var B10e9 = big.NewInt(1000000000)
 	bignumber := big.NewInt(0)
 	bignumber.SetString(value, 0)
 	bignumber = bignumber.Div(bignumber, B10e9)
-	return bignumber.Int64()
+	return bignumber.Uint64()
 }

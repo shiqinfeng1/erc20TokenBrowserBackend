@@ -67,7 +67,7 @@ func queryTokenBalance(token, holder string) (*big.Int, error) {
 	tockenCall := utiles.NewTokenCall(*wtcnode, token)
 	balance, err := tockenCall.BalanceOf(holder)
 	if err != nil {
-		return big.NewInt(0), fmt.Errorf("Get Token %s :%s Balance Fail", token, holder)
+		return big.NewInt(0), fmt.Errorf("Get Token=%s holder=%s Balance Fail:%v", token, holder, err)
 	}
 
 	return balance, nil
@@ -260,7 +260,7 @@ func grabTransferLogByLogFilter(token types.TokenInfo, ch chan []string) {
 
 //3秒检查一次数据库表tokendata.TokenAddress
 func refreshTokenLog(token types.TokenInfo, ch chan []string) {
-	log.Printf("[refreshLog]Start Refresh ... %+v\n", token)
+	log.Printf("[refresh Log]Start Refresh ... %+v\n", token)
 	c1 := time.Tick(time.Duration(3) * time.Second)
 	for {
 		select {
@@ -306,9 +306,10 @@ func init() {
 	flag.Parse()
 	fmt.Print("Enter DB Password: ")
 	bytePassword, err := terminal.ReadPassword(0)
-	if err == nil {
-		fmt.Println("\nPassword typed: " + string(bytePassword))
+	if err != nil {
+		fmt.Println("\nPassword typed: fail " + err.Error())
 	}
+	fmt.Println("")
 	password := string(bytePassword)
 	password = strings.TrimSpace(password)
 	utiles.InitMysql(*dbserver, password, *reset)

@@ -52,10 +52,11 @@ func InitMysql(dbserver, dbPassword string, reset bool) {
 		fmt.Println("drop database tokendata ...")
 		_, err = db.Exec(`DROP DATABASE IF EXISTS tokendata;`)
 		checkErr(err)
+		fmt.Println("create database tokendata ...")
+		_, err = db.Exec("CREATE DATABASE if not exists tokendata")
+		checkErr(err)
 	}
-	fmt.Println("create database tokendata ...")
-	_, err = db.Exec("CREATE DATABASE if not exists tokendata")
-	checkErr(err)
+
 	fmt.Println("use tokendata ...")
 	_, err = db.Exec("USE tokendata")
 	checkErr(err)
@@ -145,9 +146,31 @@ func UpdateTokenBalance(table, address string, balance uint64) error {
 	}
 	return nil
 }
-func GetTokenInfo() ([]types.TokenMetaInfo, error) {
+func GetTokenInfo(address string) (types.TokenMetaInfo, error) {
+	var metainfo types.TokenMetaInfo
+	var name, totalSupply, decimals sql.NullString
+	row := db.QueryRow(
+		"select name, totalSupply, decimals from tokendata.tokenMetaInfo " +
+			"where address='" + address + "'")
+
+	err := row.Scan(&name, &totalSupply, &decimals)
+	if err != nil {
+		return metainfo, err
+	}
+
+	if name.Valid && totalSupply.Valid && decimals.Valid {
+		metainfo = types.TokenMetaInfo{
+			Address:     address,
+			Name:        name.String,
+			TotalSupply: totalSupply.String,
+			Decimals:    decimals.String,
+		}
+	}
+	return metainfo, nil
+}
+func GetTokenInfoList() ([]types.TokenMetaInfo, error) {
 	var metainfos []types.TokenMetaInfo
-	rows, err := db.Query(`select (address, name, totalSupply, decimals) from tokendata.tokenMetaInfo`)
+	rows, err := db.Query(`select address, name, totalSupply, decimals from tokendata.tokenMetaInfo`)
 	if err != nil {
 		return metainfos, err
 	}
@@ -187,10 +210,10 @@ func GetTokenTxnList(table string, pagein types.PageParams) ([]types.TokenTxnInf
 	}
 
 	rows, err := db.Query(
-		"select (blockNumber, blockHash, transferHash, sender,receiver,value) " +
+		"select blockNumber, blockHash, transferHash, sender,receiver,value " +
 			"from tokendata.tokenTransfer" + table + " " +
 			"order by blockNumber desc limit " +
-			strconv.Itoa(pagein.CurrentPage*perpage) + " " +
+			strconv.Itoa(pagein.CurrentPage*perpage) + "," +
 			strconv.Itoa(perpage) + ";")
 	if err != nil {
 		return txninfos, pageout, err
@@ -218,6 +241,20 @@ func GetTokenTxnList(table string, pagein types.PageParams) ([]types.TokenTxnInf
 	pageout.PerPage = perpage
 	pageout.Total = total
 	return txninfos, pageout, nil
+}
+
+func InsertTokenAddress(address string) error {
+	sqldesc := `insert into tokendata.tokenAddress set address=?, created=?`
+	smt, err := db.Prepare(sqldesc)
+	if err != nil {
+		return err
+	}
+	defer smt.Close()
+	_, err = smt.Exec(address, time.Now().Local())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 func UpdateTokenInfo(address, name, totalSupply, decimals string) error {
 	sqldesc := `insert into tokendata.tokenMetaInfo` +
@@ -264,7 +301,7 @@ func InsertTokenTransfer(table, blockNumber, blockHash, transferHash, from, to, 
 func CheckIfExsistTokenTransferByHashInSQL(table, to, transferHash string) (int, error) {
 	var amount int
 	row := db.QueryRow("SELECT COUNT(id) as amount from tokendata.tokenTransfer" + table +
-		" where transferHash = " + transferHash + " and receiver = " + to + ";")
+		" where transferHash = '" + transferHash + "' and receiver = '" + to + "';")
 	err := row.Scan(&amount)
 	if err != nil {
 		return 0, err
@@ -321,7 +358,7 @@ func DeleteTokenTransfer(table string, block uint64) error {
 }
 func GetTokenAddressByName(name string) (string, error) {
 	var address sql.NullString
-	row := db.QueryRow("select address from tokendata.tokenMetaInfo where name=" + name + ";")
+	row := db.QueryRow("select address from tokendata.tokenMetaInfo where name='" + name + "';")
 	err := row.Scan(&address)
 	if err != nil {
 		return "", err
@@ -331,15 +368,28 @@ func GetTokenAddressByName(name string) (string, error) {
 	}
 	return "", nil
 }
+
 func GetTokenNameByAddress(address string) (string, error) {
 	var name sql.NullString
-	row := db.QueryRow("select name from tokendata.tokenMetaInfo where address=" + address + ";")
+	row := db.QueryRow("select name from tokendata.tokenMetaInfo where address='" + address + "';")
 	err := row.Scan(&name)
 	if err != nil {
 		return "", err
 	}
 	if name.Valid {
 		return name.String, nil
+	}
+	return "", nil
+}
+func GetHolderBalance(table, holder string) (string, error) {
+	var balance sql.NullString
+	row := db.QueryRow("select balance from tokendata.tokenBalance" + table + " where address='" + holder + "';")
+	err := row.Scan(&balance)
+	if err != nil {
+		return "", err
+	}
+	if balance.Valid {
+		return balance.String, nil
 	}
 	return "", nil
 }
@@ -400,4 +450,51 @@ func GetTokenHoldersInSQL(table string) ([]string, []uint64, error) {
 		}
 	}
 	return holders, balances, nil
+}
+
+func GetTokenHolderList(table string, pagein types.PageParams) ([]types.TokenHolderInfo, types.PageBody, error) {
+	var holders []types.TokenHolderInfo
+	var pageout types.PageBody
+	var total int
+
+	perpage := 0
+	if pagein.PerPage > 100 {
+		perpage = 100
+	} else {
+		perpage = pagein.PerPage
+	}
+	row := db.QueryRow("SELECT COUNT(id) as amount from tokendata.tokenBalance" + table + ";")
+	err := row.Scan(&total)
+	if err != nil {
+		return holders, pageout, err
+	}
+
+	rows, err := db.Query(
+		"select address,balance " +
+			"from tokendata.tokenBalance" + table + " " +
+			"order by balance+0 desc limit " +
+			strconv.Itoa(pagein.CurrentPage*perpage) + "," +
+			strconv.Itoa(perpage) + ";")
+	if err != nil {
+		return holders, pageout, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var a sql.NullString
+		var b sql.NullString
+		err = rows.Scan(&a, &b)
+		if err != nil {
+			return holders, pageout, err
+		}
+		if a.Valid && b.Valid {
+			holders = append(holders,
+				types.TokenHolderInfo{
+					Address: a.String,
+					Balance: Tentoten(b.String)})
+		}
+	}
+	pageout.CurrentPage = pagein.CurrentPage
+	pageout.PerPage = perpage
+	pageout.Total = total
+	return holders, pageout, nil
 }
