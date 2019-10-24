@@ -51,6 +51,43 @@ curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data 
 }
 ```
 
++ 查询指定token地址和账户的交易列表
+```
+curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data '{"jsonrpc":"2.0","method":"get_holderTxnList","params":"{\"token\":\"0x668df218d073f413ed2fcea0d48cfbfd59c030ae\",\"holder\":\"0x7f125ec7988a5fb35692ff911be45a4f9c48fc48\",\"page\":{\"current_page\":0,\"per_page\":50}}","id":1}'
+
+{
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+        "errcode": 0,
+        "errmsg": "",
+        "data": [
+            {
+                "BlockNumber": 487220,
+                "BlockHash": "0xe2a9b8158f38c3fbb3e395d01eea38239171be697aa03c9036e7c829914d260b",
+                "transferHash": "0x18ea89f965ae66ad814a4491500c3235c47c7841d07c411fb8821f6ac083f273",
+                "sender": "0x7f125ec7988a5fb35692ff911be45a4f9c48fc48",
+                "receiver": "0xdaf04e95357baef61cd4932241d681fcf0e9270c",
+                "value": "1000000000000000000"
+            },
+            {
+                "BlockNumber": 484198,
+                "BlockHash": "0x6fbc440d28faf42c8e859e2e1ae29ebf5e144f44a4d01a1dd4dc5f4d690ce51d",
+                "transferHash": "0x0c3d247c27f5f4694a483e69d4b942909547ce9b35b59343829246b295bf2e3f",
+                "sender": "0x5a37e535a430a9a5b3da17c7e68c3647035bd7bd",
+                "receiver": "0x7f125ec7988a5fb35692ff911be45a4f9c48fc48",
+                "value": "10000000000000000000"
+            }
+        ],
+        "page": {
+            "current_page": 0,
+            "per_page": 50,
+            "total": 2
+        }
+    }
+}
+```
+
 + 查询指定token地址和账户的余额
 ```
 curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data '{"jsonrpc":"2.0","method":"get_holderBalance","params":"{\"token\":\"0x668df218d073f413ed2fcea0d48cfbfd59c030ae\",\"holder\":\"0x7f125ec7988a5fb35692ff911be45a4f9c48fc48\"}","id":1}'

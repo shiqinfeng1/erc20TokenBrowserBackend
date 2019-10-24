@@ -15,13 +15,20 @@ type JSONRPCResponse struct {
 	Result  interface{} `json:"result"`
 }
 
-type TokenTxnListParams struct {
+type TokenListParams struct {
 	Token string     `json:"token"`
 	Page  PageParams `json:"page"`
 }
-type HolderBalanceParams struct {
+type HolderListParams TokenListParams
+
+type HolderTokenParams struct {
 	Token  string `json:"token"`
 	Holder string `json:"holder"`
+}
+type HolderTokenListParams struct {
+	Token  string     `json:"token"`
+	Holder string     `json:"holder"`
+	Page   PageParams `json:"page"`
 }
 
 // PageParams 分页参数

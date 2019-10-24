@@ -192,6 +192,7 @@ func GetTokenInfoList() ([]types.TokenMetaInfo, error) {
 	}
 	return metainfos, nil
 }
+
 func GetTokenTxnList(table string, pagein types.PageParams) ([]types.TokenTxnInfo, types.PageBody, error) {
 	var txninfos []types.TokenTxnInfo
 	var pageout types.PageBody
@@ -213,6 +214,60 @@ func GetTokenTxnList(table string, pagein types.PageParams) ([]types.TokenTxnInf
 		"select blockNumber, blockHash, transferHash, sender,receiver,value " +
 			"from tokendata.tokenTransfer" + table + " " +
 			"order by blockNumber desc limit " +
+			strconv.Itoa(pagein.CurrentPage*perpage) + "," +
+			strconv.Itoa(perpage) + ";")
+	if err != nil {
+		return txninfos, pageout, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var blockHash, transferHash, sender, receiver, value sql.NullString
+		var blockNumber sql.NullInt64
+		err = rows.Scan(&blockNumber, &blockHash, &transferHash, &sender, &receiver, &value)
+		if err != nil {
+			return txninfos, pageout, err
+		}
+		if blockNumber.Valid && blockHash.Valid && transferHash.Valid && sender.Valid && receiver.Valid {
+			txninfos = append(txninfos, types.TokenTxnInfo{
+				BlockNumber:  blockNumber.Int64,
+				BlockHash:    blockHash.String,
+				TransferHash: transferHash.String,
+				Sender:       sender.String,
+				Receiver:     receiver.String,
+				Value:        value.String,
+			})
+		}
+	}
+	pageout.CurrentPage = pagein.CurrentPage
+	pageout.PerPage = perpage
+	pageout.Total = total
+	return txninfos, pageout, nil
+}
+
+func GetTokenHolderTxnList(table, holder string, pagein types.PageParams) ([]types.TokenTxnInfo, types.PageBody, error) {
+	var txninfos []types.TokenTxnInfo
+	var pageout types.PageBody
+	var total int
+
+	perpage := 0
+	if pagein.PerPage > 100 {
+		perpage = 100
+	} else {
+		perpage = pagein.PerPage
+	}
+	row := db.QueryRow(
+		"SELECT COUNT(id) as amount from tokendata.tokenTransfer" + table +
+			" where sender='" + holder + "' or receiver='" + holder + "';")
+	err := row.Scan(&total)
+	if err != nil {
+		return txninfos, pageout, err
+	}
+
+	rows, err := db.Query(
+		"select blockNumber, blockHash, transferHash, sender,receiver,value " +
+			"from tokendata.tokenTransfer" + table +
+			" where sender='" + holder + "' or receiver='" + holder +
+			"' order by blockNumber desc limit " +
 			strconv.Itoa(pagein.CurrentPage*perpage) + "," +
 			strconv.Itoa(perpage) + ";")
 	if err != nil {

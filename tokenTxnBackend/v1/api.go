@@ -25,6 +25,11 @@ const (
 	ERRCODE_GetTokenTxnList2
 	ERRCODE_GetTokenTxnList3
 	ERRCODE_GetTokenTxnList4
+	ERRCODE_GetHolderTokenList1
+	ERRCODE_GetHolderTokenList2
+	ERRCODE_GetHolderTokenList3
+	ERRCODE_GetHolderTokenList4
+	ERRCODE_GetHolderTokenList5
 	ERRCODE_GetTokenHolderList1
 	ERRCODE_GetTokenHolderList2
 	ERRCODE_GetTokenHolderList3
@@ -102,7 +107,7 @@ func getTokenInfo(id int, params string) *types.JSONRPCResponse {
 }
 func getTokenTxnList(id int, params string) *types.JSONRPCResponse {
 
-	p := types.TokenTxnListParams{}
+	p := types.TokenListParams{}
 	err := json.Unmarshal([]byte(params), &p)
 	if err != nil {
 		return ErrorReturns(id, ERRCODE_GetTokenTxnList1, "Token Txn List Params Error: "+err.Error())
@@ -124,9 +129,34 @@ func getTokenTxnList(id int, params string) *types.JSONRPCResponse {
 	}
 	return ResultWithPageReturns(id, txnList, page)
 }
+func getHolderTxnList(id int, params string) *types.JSONRPCResponse {
+
+	p := types.HolderTokenListParams{}
+	err := json.Unmarshal([]byte(params), &p)
+	if err != nil {
+		return ErrorReturns(id, ERRCODE_GetHolderTokenList1, "Token Holder Txn List Params Error: "+err.Error())
+	}
+	if p.Token == "" || p.Holder == "" {
+		return ErrorReturns(id, ERRCODE_GetHolderTokenList2, "Token/Holder is NULL ")
+	}
+
+	if (p.Token[:2] != "0x" && p.Token[:2] != "0X") || (p.Holder[:2] != "0x" && p.Holder[:2] != "0X") {
+		return ErrorReturns(id, ERRCODE_GetHolderTokenList3, "Token/Holder Address Invalid")
+	}
+	var symbol string
+	if symbol, err = utiles.GetTokenNameByAddress(p.Token); err != nil {
+		return ErrorReturns(id, ERRCODE_GetHolderTokenList4, "Get Token Symbol Fail: "+err.Error())
+	}
+	txnList, page, err := utiles.GetTokenHolderTxnList(symbol, p.Holder, p.Page)
+	if err != nil {
+		return ErrorReturns(id, ERRCODE_GetTokenTxnList3, "Get Token Holder Txn List Fail: "+err.Error())
+	}
+	return ResultWithPageReturns(id, txnList, page)
+
+}
 func getTokenHolderList(id int, params string) *types.JSONRPCResponse {
 
-	p := types.TokenTxnListParams{}
+	p := types.HolderTokenListParams{}
 	err := json.Unmarshal([]byte(params), &p)
 	if err != nil {
 		return ErrorReturns(id, ERRCODE_GetTokenHolderList1, "Token Holder List Params Error: "+err.Error())
@@ -149,7 +179,7 @@ func getTokenHolderList(id int, params string) *types.JSONRPCResponse {
 	return ResultWithPageReturns(id, holderList, page)
 }
 func getHolderBalance(id int, params string) *types.JSONRPCResponse {
-	p := types.HolderBalanceParams{}
+	p := types.HolderTokenParams{}
 	err := json.Unmarshal([]byte(params), &p)
 	if err != nil {
 		return ErrorReturns(id, ERRCODE_HolderBalance1, "Token Holder Balance Params Error: "+err.Error())
@@ -183,6 +213,7 @@ func Handle(req *types.JSONRPCRequest) *types.JSONRPCResponse {
 	case "get_tokenHolderList": //指定token的所有持有者列表，按照余额大小排序
 		return getTokenHolderList(req.ID, req.Params)
 	case "get_holderTxnList": //holder在指定token中的交易记录
+		return getHolderTxnList(req.ID, req.Params)
 	case "get_holderBalance": //holder在指定token中的余额
 		return getHolderBalance(req.ID, req.Params)
 	case "token_register": //注册token
