@@ -78,9 +78,10 @@ func refreshTokenAddress() {
 	log.Println("[refreshTokenAddress]Start Refresh ...")
 	c := time.Tick(time.Duration(5) * time.Second)
 	for {
+		<-c
 		tokenInfo, err := utiles.GetTokenAddressesInSQL()
 		if err != nil {
-			log.Printf("[refresh Token Address] Get TokenAddresses InSQL Fail:%v\n", err)
+			// log.Printf("[refresh Token Address] Get TokenAddresses InSQL Fail:%v\n", err)
 			continue
 		}
 		for _, info := range tokenInfo {
@@ -99,11 +100,10 @@ func refreshTokenAddress() {
 				}
 
 				//创建表项，保存token信息
-				utiles.CreateTokenInfoTable(symbol)
 				utiles.CreateTokenBalanceTable(symbol)
 				utiles.CreateTransferTable(symbol)
 				// newTokenTransactionTable("tokenTransaction" + symbol)
-				err3 := utiles.UpdateTokenInfo(symbol, info.Address, symbol, supply.String(), decimals.String())
+				err3 := utiles.UpdateTokenInfo(info.Address, symbol, supply.String(), decimals.String())
 				if err3 != nil {
 					log.Printf("[refresh Token Address] Update TokenInfo Fail:%+v\n", err3)
 					break
@@ -115,7 +115,6 @@ func refreshTokenAddress() {
 				newTokenChan <- info
 			}
 		}
-		<-c
 	}
 }
 func checkBlockFork(symbol string, lastCheckedBlock, latestBlockNumber uint64) uint64 {
@@ -323,6 +322,7 @@ func main() {
 	signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGUSR1, syscall.SIGTERM)
 	//创建保存注册token地址的表
 	utiles.CreateTokenAddressTable()
+	utiles.CreateTokenInfoTable()
 	//定时查询当前注册的token地址名称列表，如果有更新，从链上查询代币信息保存到本地，创建相关的表项
 	//并通过newTokenChan通知外界，进行对该token的监听操作
 	go refreshTokenAddress()
