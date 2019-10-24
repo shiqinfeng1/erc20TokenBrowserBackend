@@ -15,5 +15,4 @@ func main() {
 	web.Post("v1/token/list/holders", v1.Hello)      //指定token的所有持有者列表，按照余额大小排序
 	web.Post("v1/holder/list/transaction", v1.Hello) //holder在指定token中的交易记录
 	web.Post("v1/holder/balance", v1.Hello)          //holder在指定token中的余额
-
 }
