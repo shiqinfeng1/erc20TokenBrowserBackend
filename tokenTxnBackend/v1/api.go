@@ -1,24 +1,23 @@
-package main
+package v1
 
 import (
 	"net/http"
 
-	"github.com/labstack/echo"
+	"github.com/hoisie/web"
 )
 
 type HTTPResponseBody struct {
-	c echo.Context
+	c web.Context
 }
 
 // ErrorReturns 发生错误的时候的返回值封装
-func ErrorReturns(c echo.Context, errcode string, msg string) error {
+func ErrorReturns(c web.Context, errcode string, msg string) error {
 	returns := &ReturnBodyNoPage{
 		Errcode: errcode,
 		ErrMsg:  msg,
 	}
-	return c.JSON(200, returns)
+	return c.JSON(http.StatusOK, returns)
 }
-
 
 func Hello(ctx *web.Context, val string) {
 	for k, v := range ctx.Params {
