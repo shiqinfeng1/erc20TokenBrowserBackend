@@ -81,7 +81,8 @@ func CreateTransferTable(table string) {
 	sql := `CREATE TABLE IF NOT EXISTS  tokendata.tokenTransfer` + table + `(
 		id INT(10) NOT NULL AUTO_INCREMENT,
 		blockNumber INT(10) NULL DEFAULT NULL,
-        blockHash VARCHAR(128) NULL DEFAULT NULL,
+		blockHash VARCHAR(128) NULL DEFAULT NULL,
+		timestamp VARCHAR(32) NULL DEFAULT NULL, 
 		transferHash VARCHAR(128) NULL DEFAULT NULL,
 		sender VARCHAR(64) NULL DEFAULT NULL,
 		receiver VARCHAR(64) NULL DEFAULT NULL,
@@ -211,7 +212,7 @@ func GetTokenTxnList(table string, pagein types.PageParams) ([]types.TokenTxnInf
 	}
 
 	rows, err := db.Query(
-		"select blockNumber, blockHash, transferHash, sender,receiver,value " +
+		"select blockNumber, blockHash, timestamp,transferHash, sender,receiver,value " +
 			"from tokendata.tokenTransfer" + table + " " +
 			"order by blockNumber desc limit " +
 			strconv.Itoa(pagein.CurrentPage*perpage) + "," +
@@ -221,9 +222,9 @@ func GetTokenTxnList(table string, pagein types.PageParams) ([]types.TokenTxnInf
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var blockHash, transferHash, sender, receiver, value sql.NullString
+		var blockHash, timestamp, transferHash, sender, receiver, value sql.NullString
 		var blockNumber sql.NullInt64
-		err = rows.Scan(&blockNumber, &blockHash, &transferHash, &sender, &receiver, &value)
+		err = rows.Scan(&blockNumber, &blockHash, &timestamp, &transferHash, &sender, &receiver, &value)
 		if err != nil {
 			return txninfos, pageout, err
 		}
@@ -231,6 +232,7 @@ func GetTokenTxnList(table string, pagein types.PageParams) ([]types.TokenTxnInf
 			txninfos = append(txninfos, types.TokenTxnInfo{
 				BlockNumber:  blockNumber.Int64,
 				BlockHash:    blockHash.String,
+				Timestamp:    timestamp.String,
 				TransferHash: transferHash.String,
 				Sender:       sender.String,
 				Receiver:     receiver.String,
@@ -264,7 +266,7 @@ func GetTokenHolderTxnList(table, holder string, pagein types.PageParams) ([]typ
 	}
 
 	rows, err := db.Query(
-		"select blockNumber, blockHash, transferHash, sender,receiver,value " +
+		"select blockNumber, blockHash, timestamp,transferHash, sender,receiver,value " +
 			"from tokendata.tokenTransfer" + table +
 			" where sender='" + holder + "' or receiver='" + holder +
 			"' order by blockNumber desc limit " +
@@ -275,9 +277,9 @@ func GetTokenHolderTxnList(table, holder string, pagein types.PageParams) ([]typ
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var blockHash, transferHash, sender, receiver, value sql.NullString
+		var blockHash, timestamp, transferHash, sender, receiver, value sql.NullString
 		var blockNumber sql.NullInt64
-		err = rows.Scan(&blockNumber, &blockHash, &transferHash, &sender, &receiver, &value)
+		err = rows.Scan(&blockNumber, &blockHash, &timestamp, &transferHash, &sender, &receiver, &value)
 		if err != nil {
 			return txninfos, pageout, err
 		}
@@ -285,6 +287,7 @@ func GetTokenHolderTxnList(table, holder string, pagein types.PageParams) ([]typ
 			txninfos = append(txninfos, types.TokenTxnInfo{
 				BlockNumber:  blockNumber.Int64,
 				BlockHash:    blockHash.String,
+				Timestamp:    timestamp.String,
 				TransferHash: transferHash.String,
 				Sender:       sender.String,
 				Receiver:     receiver.String,
@@ -299,6 +302,12 @@ func GetTokenHolderTxnList(table, holder string, pagein types.PageParams) ([]typ
 }
 
 func InsertTokenAddress(address string) error {
+	row := db.QueryRow("select COUNT(id) from tokendata.tokenAddress where address='" + address + "';")
+	var amount int
+	row.Scan(&amount)
+	if amount > 0 {
+		return nil
+	}
 	sqldesc := `insert into tokendata.tokenAddress set address=?, created=?`
 	smt, err := db.Prepare(sqldesc)
 	if err != nil {
@@ -339,15 +348,15 @@ func UpdateTokenStatus(address, status string) error {
 	}
 	return nil
 }
-func InsertTokenTransfer(table, blockNumber, blockHash, transferHash, from, to, value string) error {
+func InsertTokenTransfer(table, blockNumber, blockHash, timestamp, transferHash, from, to, value string) error {
 	sqldesc := `insert into tokendata.tokenTransfer` + table +
-		` set blockNumber=?, blockHash=?, transferHash=?, sender=?, receiver=?, value=?, created=?`
+		` set blockNumber=?, blockHash=?, timestamp=?, transferHash=?, sender=?, receiver=?, value=?, created=?`
 	smt, err := db.Prepare(sqldesc)
 	if err != nil {
 		return err
 	}
 	defer smt.Close()
-	_, err = smt.Exec(HexStoTenSWith0x(blockNumber), blockHash, transferHash, from, to, value, time.Now().Local())
+	_, err = smt.Exec(HexStoTenSWith0x(blockNumber), blockHash, timestamp, transferHash, from, to, value, time.Now().Local())
 	if err != nil {
 		return err
 	}

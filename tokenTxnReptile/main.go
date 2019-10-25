@@ -73,7 +73,7 @@ func queryTokenBalance(token, holder string) (*big.Int, error) {
 	return balance, nil
 }
 
-//5秒检查一次数据库表tokendata.TokenAddress
+//5秒检查一次数据库表tokendata.TokenAddress，如果有新的地址加入，创建相应的表项，并通知外界
 func refreshTokenAddress() {
 	log.Println("[refreshTokenAddress]Start Refresh ...")
 	c := time.Tick(time.Duration(5) * time.Second)
@@ -102,7 +102,7 @@ func refreshTokenAddress() {
 				//创建表项，保存token信息
 				utiles.CreateTokenBalanceTable(symbol)
 				utiles.CreateTransferTable(symbol)
-				// newTokenTransactionTable("tokenTransaction" + symbol)
+
 				err3 := utiles.UpdateTokenInfo(info.Address, symbol, supply.String(), decimals.String())
 				if err3 != nil {
 					log.Printf("[refresh Token Address] Update TokenInfo Fail:%+v\n", err3)
@@ -243,10 +243,9 @@ func grabTransferLogByLogFilter(token types.TokenInfo, ch chan []string) {
 			err := utiles.InsertTokenTransfer(
 				token.Symbol,
 				event.BlockNumber,
-				b.Hash,
+				b.Hash, b.Timestamp,
 				event.TransactionHash,
-				from,
-				to,
+				from, to,
 				value.String())
 			if err != nil {
 				log.Printf("Insert TokenTransfer Fail:%v\n", err)

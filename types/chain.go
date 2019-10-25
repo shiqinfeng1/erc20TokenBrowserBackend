@@ -17,8 +17,9 @@ type TokenMetaInfo struct {
 
 // TokenTxnInfo TokenTxnInfo
 type TokenTxnInfo struct {
-	BlockNumber  int64  `json:"BlockNumber"`
-	BlockHash    string `json:"BlockHash"`
+	BlockNumber  int64  `json:"blockNumber"`
+	BlockHash    string `json:"blockHash"`
+	Timestamp    string `json:"timestamp"`
 	TransferHash string `json:"transferHash"`
 	Sender       string `json:"sender"`
 	Receiver     string `json:"receiver"`

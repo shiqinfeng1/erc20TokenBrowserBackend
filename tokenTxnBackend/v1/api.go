@@ -218,7 +218,6 @@ func Handle(req *types.JSONRPCRequest) *types.JSONRPCResponse {
 		return getHolderBalance(req.ID, req.Params)
 	case "token_register": //注册token
 		return tokenRegister(req.ID, req.Params)
-
 	}
 	return ErrorReturns(req.ID, ERRCODE_Handle, "Unkown Method: "+req.Method)
 }
