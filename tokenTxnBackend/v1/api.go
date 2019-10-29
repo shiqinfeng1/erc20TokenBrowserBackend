@@ -21,6 +21,7 @@ const (
 	ERRCODE_TokenRegister2
 	ERRCODE_GetTokenInfo1
 	ERRCODE_GetTokenInfo2
+	ERRCODE_IsContract1
 	ERRCODE_GetTokenTxnList1
 	ERRCODE_GetTokenTxnList2
 	ERRCODE_GetTokenTxnList3
@@ -105,6 +106,14 @@ func getTokenInfo(id int, params string) *types.JSONRPCResponse {
 	}
 	return ResultNoPageReturns(id, tokeninfo)
 }
+func isContract(id int, params string) *types.JSONRPCResponse {
+	istrue, err := utiles.IsContract(params)
+	if err != nil {
+		return ErrorReturns(id, ERRCODE_IsContract1, "isContract Fail: "+err.Error())
+	}
+	return ResultNoPageReturns(id, istrue)
+}
+
 func getTokenTxnList(id int, params string) *types.JSONRPCResponse {
 
 	p := types.TokenListParams{}
@@ -218,6 +227,8 @@ func Handle(req *types.JSONRPCRequest) *types.JSONRPCResponse {
 		return getHolderBalance(req.ID, req.Params)
 	case "token_register": //注册token
 		return tokenRegister(req.ID, req.Params)
+	case "is_contract": //注册token
+		return isContract(req.ID, req.Params)
 	}
 	return ErrorReturns(req.ID, ERRCODE_Handle, "Unkown Method: "+req.Method)
 }

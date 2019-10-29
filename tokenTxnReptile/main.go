@@ -40,12 +40,6 @@ func (t TokenInfoArray) Contains(ti types.TokenInfo) bool {
 	return false
 }
 
-func checkErr(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
 func queryTokenInfo(token string) (string, *big.Int, *big.Int, error) {
 	tockenCall := utiles.NewTokenCall(*wtcnode, token)
 	symbol, err := tockenCall.Symbol()
@@ -148,7 +142,11 @@ func checkBlockFork(symbol string, lastCheckedBlock, latestBlockNumber uint64) u
 			continue
 		}
 
-		b := chainNode.Block(i)
+		b, err := chainNode.Block(i)
+		if err != nil {
+			log.Printf("[check Block Fork] Get Block Fail:%v\n", err)
+			continue
+		}
 		if dbhash != b.Hash {
 			log.Println("change the ", i, "block")
 			err := utiles.DeleteTokenTransfer(symbol, i)
@@ -164,7 +162,11 @@ func grabTransferLogByIterBlock(from, to uint64) {
 
 	for i := from; i <= to; i++ {
 		//获取区块数据
-		b := chainNode.Block(i)
+		b, err := chainNode.Block(i)
+		if err != nil {
+			log.Printf("[check Block Fork] Get Block Fail:%v\n", err)
+			continue
+		}
 		//过滤没有交易的区块
 		if len(b.Transactions) == 0 {
 			continue
@@ -172,8 +174,11 @@ func grabTransferLogByIterBlock(from, to uint64) {
 		log.Println("扫描到有交易的块: ", utiles.Hextoten(b.Number))
 		for _, v := range b.Transactions {
 			//获取交易信息
-			r := chainNode.TransactionReceipt(v.TransactionHash)
-
+			r, err := chainNode.TransactionReceipt(v.TransactionHash)
+			if err != nil {
+				log.Printf("[check Block Fork] Get TransactionReceipt InSQL Fail:%v\n", err)
+				continue
+			}
 			//过滤没有事件的交易
 			logs := r.Logs
 			if len(logs) == 0 {
@@ -215,7 +220,11 @@ func grabTransferLogByLogFilter(token types.TokenInfo, ch chan []string) {
 	//根据最新高度检查链是否存在分叉，如果存在，需要删除分叉点后的数据，并重新同步
 	comfiredBlockNumber := checkBlockFork(token.Symbol, lastBlockNumber, latestBlockNumber)
 
-	transferlog := chainNode.GetLogs(token.Address, comfiredBlockNumber+1, latestBlockNumber)
+	transferlog, err := chainNode.GetLogs(token.Address, comfiredBlockNumber+1, latestBlockNumber)
+	if err != nil {
+		log.Printf("[grab Transfer Log] Get Logs Fail:%v\n", err)
+		return
+	}
 
 	if len(transferlog) == 0 {
 		return
@@ -232,7 +241,11 @@ func grabTransferLogByLogFilter(token types.TokenInfo, ch chan []string) {
 			token.Symbol, token.Address, event.BlockNumber, from, to, value, event.TransactionHash)
 
 		number, _ := strconv.ParseUint(event.BlockNumber, 0, 64)
-		b := chainNode.Block(number)
+		b, err := chainNode.Block(number)
+		if err != nil {
+			log.Printf("Get Block Fail:%v\n", err)
+			continue
+		}
 		//检查交易是否重复
 		amount, err := utiles.CheckIfExsistTokenTransferByHashInSQL(token.Symbol, to, event.TransactionHash)
 		if err != nil {

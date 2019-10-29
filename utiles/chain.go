@@ -20,26 +20,34 @@ type Chain struct {
 	EthereumNode string
 }
 
-func (c *Chain) Block(number uint64) types.Block {
+func (c *Chain) Block(number uint64) (types.Block, error) {
 	method := "eth_getBlockByNumber"
 	params := `["` + "0x" + strconv.FormatUint(number, 16) + `",true]`
 	jsrp, err := c.callGeth(method, params)
-	checkErr(err)
+	if err != nil {
+		return types.Block{}, err
+	}
 	r := types.BlcokResult{}
 	err = json.Unmarshal([]byte(jsrp), &r)
-	checkErr(err)
-	return r.Result
+	if err != nil {
+		return types.Block{}, err
+	}
+	return r.Result, nil
 }
 
-func (c *Chain) GetLogs(token string, fromBlock, toBlock uint64) []types.Log {
+func (c *Chain) GetLogs(token string, fromBlock, toBlock uint64) ([]types.Log, error) {
 	method := "eth_getLogs"
 	params := `[{"fromBlock":"0x` + strconv.FormatUint(fromBlock, 16) + `","toBlock":"0x` + strconv.FormatUint(toBlock, 16) + `","address": "` + token + `","topics": ["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"]}]` //
 	jsrp, err := c.callGeth(method, params)
-	checkErr(err)
+	if err != nil {
+		return []types.Log{}, err
+	}
 	r := types.LogsResult{}
 	err = json.Unmarshal([]byte(jsrp), &r)
-	checkErr(err)
-	return r.Result
+	if err != nil {
+		return []types.Log{}, err
+	}
+	return r.Result, nil
 }
 
 func (c *Chain) GetBlockNumber() (uint64, error) {
@@ -61,28 +69,52 @@ func (c *Chain) GetBlockNumber() (uint64, error) {
 	return number, nil
 }
 
-func (c *Chain) Getbalance(address string, block uint64) *big.Int {
+func (c *Chain) Getbalance(address string, block uint64) (*big.Int, error) {
 	method := "eth_getBalance"
 	params := `["` + address + `","0x` + strconv.FormatUint(block, 16) + `"]`
 	jsrp, err := c.callGeth(method, params)
-	checkErr(err)
+	if err != nil {
+		return nil, err
+	}
 	r := types.BalanceResult{}
 	err = json.Unmarshal([]byte(jsrp), &r)
-	checkErr(err)
+	if err != nil {
+		return nil, err
+	}
 	balance := big.NewInt(0)
 	balance.SetString(r.Result, 0)
-	return balance
+	return balance, nil
 }
-
-func (c *Chain) TransactionReceipt(address string) types.Receipt {
+func (c *Chain) IsContract(address string) (bool, error) {
+	method := "eth_getCode"
+	params := `["` + address + `","latest"]`
+	jsrp, err := c.callGeth(method, params)
+	if err != nil {
+		return false, err
+	}
+	r := types.BalanceResult{}
+	err = json.Unmarshal([]byte(jsrp), &r)
+	if err != nil {
+		return false, err
+	}
+	if r.Result == "" {
+		return false, nil
+	}
+	return true, nil
+}
+func (c *Chain) TransactionReceipt(address string) (types.Receipt, error) {
 	method := "eth_getTransactionReceipt"
 	params := `["` + address + `"]`
 	jsrp, err := c.callGeth(method, params)
-	checkErr(err)
+	if err != nil {
+		return types.Receipt{}, err
+	}
 	r := types.ReceiptResult{}
 	err = json.Unmarshal([]byte(jsrp), &r)
-	checkErr(err)
-	return r.Result
+	if err != nil {
+		return types.Receipt{}, err
+	}
+	return r.Result, nil
 }
 func (c *Chain) callGeth(method, params string) (string, error) {
 	cmd := exec.Command("bash", "-c", `curl -H "Content-Type: application/json" -X POST '`+c.EthereumNode+`' --data '{"jsonrpc":"2.0","method":"`+method+`","params":`+params+`,"id":1}'`)

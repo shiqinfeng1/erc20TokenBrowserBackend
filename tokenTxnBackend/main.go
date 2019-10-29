@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	dbserver = flag.String("dbserver", "49.51.138.248:3306", "Database Address.")
+	dbserver = flag.String("dbserver", "localhost:3306", "Database Address.") //"49.51.138.248:3306"
 )
 
 func init() {

@@ -147,6 +147,15 @@ func UpdateTokenBalance(table, address string, balance uint64) error {
 	}
 	return nil
 }
+func IsContract(address string) (bool, error) {
+	row := db.QueryRow("select COUNT(id) from tokendata.tokenAddress where address='" + address + "';")
+	var amount int
+	row.Scan(&amount)
+	if amount > 0 {
+		return true, nil
+	}
+	return false, nil
+}
 func GetTokenInfo(address string) (types.TokenMetaInfo, error) {
 	var metainfo types.TokenMetaInfo
 	var name, totalSupply, decimals sql.NullString
