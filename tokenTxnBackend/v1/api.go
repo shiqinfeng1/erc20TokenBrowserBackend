@@ -237,7 +237,7 @@ func Handle(req *types.JSONRPCRequest) *types.JSONRPCResponse {
 func Route(ctx *web.Context) string {
 
 	ctx.ContentType("json")
-
+	ctx.SetHeader("Access-Control-Allow-Origin", "*", true)
 	req, err := praseRequest(ctx)
 	if err != nil {
 		log.Println("praseRequest Fial: ", err.Error())
