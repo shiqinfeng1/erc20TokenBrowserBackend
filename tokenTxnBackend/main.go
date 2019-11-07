@@ -25,12 +25,10 @@ func init() {
 	var fd int
 	fmt.Print("Enter DB Password: ")
 	switch runtime.GOOS {
-	case "darwin":
+	case "darwin", "linux":
 		fd = 0
 	case "windows":
 		fd = int(os.Stdin.Fd())
-	case "linux":
-		fd = 0
 	}
 	bytePassword, err := terminal.ReadPassword(fd)
 	if err != nil {
