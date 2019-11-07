@@ -7,9 +7,9 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -22,8 +22,9 @@ var (
 	tokenInfos   TokenInfoArray
 	newTokenChan = make(chan types.TokenInfo)
 	reset        = flag.Bool("reset", false, "Clear All DB Data.")
-	wtcnode      = flag.String("wtcnode", "192.168.50.184:8545", "WTC chain Node Address.")
-	dbserver     = flag.String("dbserver", "49.51.138.248:3306", "Database Address.")
+	wtcnode      = flag.String("wtcnode", "node.waltonchain.pro:3545", "WTC chain Node Address.")
+	dbserver     = flag.String("dbserver", "localhost:3306", "Database Address.")
+	dbpwd        = flag.String("dbpwd", "abc123", "Database password.")
 	chainNode    *utiles.Chain
 )
 
@@ -131,11 +132,11 @@ func checkBlockFork(symbol string, lastCheckedBlock, latestBlockNumber uint64) u
 	}
 	// 剩下的情况是 latestBlockNumber - lastCheckedBlock < 12
 	for i := latestBlockNumber - uint64(12); i <= lastCheckedBlock; i++ {
-		fmt.Println("检查块", i)
+		fmt.Println("当前检查块高度:", i, ". 最后一次检查的块高度:", lastCheckedBlock)
 		// 如果tokenTransfer表中存在该高度的交易记录，和链上的区块hash进行比较，检查是否分叉
 		dbhash, err := utiles.GetBlockHashInSQL(symbol, i)
 		if err != nil {
-			log.Printf("[check Block Fork] Get BlockHash InSQL Fail:%v\n", err)
+			log.Printf("[check Block Fork] Get BlockHash InSQL: %v\n", err)
 			continue
 		}
 		if dbhash == "" {
@@ -294,35 +295,53 @@ func refreshTokenBalance(token types.TokenInfo, ch chan []string) {
 				log.Printf("[refresh Token Balance] Get Token Holders InSQL Fail %v\n", err)
 			}
 			holders, balance = h, b
+			for i, holder := range holders {
+				if b, err := queryTokenBalance(token.Address, holder); err == nil {
+					if b.Uint64() != balance[i] {
+						log.Printf("Got %v At ## %v ## Balance. Old=%v New=%v", holder, token.Symbol, balance[i], b.Uint64())
+						err := utiles.UpdateTokenBalance(token.Symbol, holder, b.Uint64())
+						if err != nil {
+							log.Printf("[refresh Token Balance]1 Update Token Balance Fail:%v\n", err)
+						}
+					}
+				} else {
+					log.Printf("[refresh Token Balance]1 query Token Balance Fail:%v\n", err)
+				}
+			}
 		case holders = <-ch:
-			balance = make([]uint64, len(holders))
-		}
-
-		for i, holder := range holders {
-			if b, err := queryTokenBalance(token.Address, holder); err == nil {
-				if b.Uint64() == 0 || b.Uint64() != balance[i] {
-					log.Printf("Got %v At ## %v ## Balance. Old=%v New=%v", holder, token.Symbol, balance[i], b.Uint64())
+			for _, holder := range holders {
+				if b, err := queryTokenBalance(token.Address, holder); err == nil {
+					log.Printf("Got %v At ## %v ## Balance. New=%v", holder, token.Symbol, b.Uint64())
 					err := utiles.UpdateTokenBalance(token.Symbol, holder, b.Uint64())
 					if err != nil {
-						log.Printf("[refresh Token Balance] Update Token Balance Fail:%v\n", err)
+						log.Printf("[refresh Token Balance]2 Update Token Balance Fail:%v\n", err)
 					}
+				} else {
+					log.Printf("[refresh Token Balance]2 query Token Balance Fail:%v\n", err)
 				}
-			} else {
-				log.Printf("[refresh Token Balance] query Token Balance Fail:%v\n", err)
 			}
 		}
 	}
 }
 
 func init() {
-	flag.Parse()
+	var fd int
 	fmt.Print("Enter DB Password: ")
-	bytePassword, err := terminal.ReadPassword(0)
+	switch runtime.GOOS {
+	case "darwin", "linux":
+		fd = 0
+	case "windows":
+		fd = int(os.Stdin.Fd())
+	}
+	bytePassword, err := terminal.ReadPassword(fd)
 	if err != nil {
 		fmt.Println("\nPassword typed: fail " + err.Error())
 	}
 	fmt.Println("")
-	password := string(bytePassword)
+	if len(bytePassword) != 0 {
+		*dbpwd = string(bytePassword)
+	}
+	password := *dbpwd
 	password = strings.TrimSpace(password)
 	utiles.InitMysql(*dbserver, password, *reset)
 
@@ -332,7 +351,7 @@ func init() {
 func main() {
 
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, os.Kill, syscall.SIGUSR1, syscall.SIGTERM)
+	signal.Notify(c, os.Interrupt, os.Kill)
 	//创建保存注册token地址的表
 	utiles.CreateTokenAddressTable()
 	utiles.CreateTokenInfoTable()

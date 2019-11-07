@@ -3,6 +3,7 @@
 ## 启动交易同步
 ```
 ./erc20bb  -wtcnode 192.168.50.184:8545 -dbserver 49.51.138.248:3306 -reset
+./erc20bb  -reset
 ```
 
 + -reset： 清空数据库中所有数据. 默认不清空数据库。
@@ -19,6 +20,23 @@
 ./erc20tb -dbserver 49.51.138.248:3306 
 ```
 
++ 判断地址是否为注册的token
+"data"字段 true=是 或 false=否
+```
+curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data '{"jsonrpc":"2.0","method":"is_contract","params":"0x668df218d073f413ed2fcea0d48cfbfd59c030ae","id":1}'
+
+{
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": {
+        "errcode": 0,
+        "errmsg": "",
+        "data": true
+    }
+}
+
+```
+
 + 注册token
 ```
 curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data '{"jsonrpc":"2.0","method":"token_register","params":"0x668df218d073f413ed2fcea0d48cfbfd59c030ae","id":1}'
@@ -31,7 +49,8 @@ curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data 
         "errmsg": "",
         "data": "Register OK"
     }
-}%
+}
+
 ```
 + 查询所有token信息
 ```
@@ -53,6 +72,7 @@ curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data 
         ]
     }
 }
+
 ```
 
 + 查询指定token地址和指定账户的交易列表
@@ -92,6 +112,7 @@ curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data 
         }
     }
 }
+
 ```
 
 + 查询指定token地址和账户的余额
