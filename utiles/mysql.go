@@ -133,7 +133,7 @@ func CreateTokenInfoTable() {
 	checkErr(err)
 }
 
-func UpdateTokenBalance(table, address string, balance uint64) error {
+func UpdateTokenBalance(table, address string, balance string) error {
 	sql := "INSERT INTO tokendata.tokenBalance" + table +
 		" (address,balance,created) VALUES (?,?,?) ON DUPLICATE KEY UPDATE balance=?,created=?"
 	smt, err := db.Prepare(sql)
@@ -501,9 +501,9 @@ func GetBlockNumberInSQL(table string) (uint64, error) {
 	}
 }
 
-func GetTokenHoldersInSQL(table string) ([]string, []uint64, error) {
+func GetTokenHoldersInSQL(table string) ([]string, []string, error) {
 	var holders []string
-	var balances []uint64
+	var balances []string
 	rows, err := db.Query("select address,balance from tokendata.tokenBalance" + table + ";")
 	if err != nil {
 		return holders, balances, err
@@ -512,14 +512,14 @@ func GetTokenHoldersInSQL(table string) ([]string, []uint64, error) {
 
 	for rows.Next() {
 		var s sql.NullString
-		var b uint64
+		var b sql.NullString
 		err = rows.Scan(&s, &b)
 		if err != nil {
 			return holders, balances, err
 		}
 		if s.Valid {
 			holders = append(holders, s.String)
-			balances = append(balances, b)
+			balances = append(balances, b.String)
 		}
 	}
 	return holders, balances, nil
@@ -563,7 +563,7 @@ func GetTokenHolderList(table string, pagein types.PageParams) ([]types.TokenHol
 			holders = append(holders,
 				types.TokenHolderInfo{
 					Address: a.String,
-					Balance: Tentoten(b.String)})
+					Balance: b.String})
 		}
 	}
 	pageout.CurrentPage = pagein.CurrentPage

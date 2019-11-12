@@ -28,7 +28,7 @@ type TokenTxnInfo struct {
 
 // TokenHolderInfo TokenHolderInfo
 type TokenHolderInfo struct {
-	Balance uint64 `json:"balance"`
+	Balance string `json:"balance"`
 	Address string `json:"address"`
 }
 

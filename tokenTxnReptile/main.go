@@ -58,14 +58,13 @@ func queryTokenInfo(token string) (string, *big.Int, *big.Int, error) {
 	return symbol, supply, decimals, nil
 }
 
-func queryTokenBalance(token, holder string) (*big.Int, error) {
+func queryTokenBalance(token, holder string) (string, error) {
 	tockenCall := utiles.NewTokenCall(*wtcnode, token)
 	balance, err := tockenCall.BalanceOf(holder)
 	if err != nil {
-		return big.NewInt(0), fmt.Errorf("Get Token=%s holder=%s Balance Fail:%v", token, holder, err)
+		return "0x0", fmt.Errorf("Get Token=%s holder=%s Balance Fail:%v", token, holder, err)
 	}
-
-	return balance, nil
+	return fmt.Sprintf("0x%x", balance), nil
 }
 
 //5秒检查一次数据库表tokendata.TokenAddress，如果有新的地址加入，创建相应的表项，并通知外界
@@ -282,9 +281,10 @@ func refreshTokenLog(token types.TokenInfo, ch chan []string) {
 		}
 	}
 }
+
 func refreshTokenBalance(token types.TokenInfo, ch chan []string) {
 	var holders []string
-	var balance []uint64
+	var balance []string
 	log.Printf("[refresh Token Balance] Start Refresh ... %+v\n", token)
 	c := time.Tick(time.Duration(60) * time.Second)
 	for {
@@ -297,9 +297,9 @@ func refreshTokenBalance(token types.TokenInfo, ch chan []string) {
 			holders, balance = h, b
 			for i, holder := range holders {
 				if b, err := queryTokenBalance(token.Address, holder); err == nil {
-					if b.Uint64() != balance[i] {
-						log.Printf("Got %v At ## %v ## Balance. Old=%v New=%v", holder, token.Symbol, balance[i], b.Uint64())
-						err := utiles.UpdateTokenBalance(token.Symbol, holder, b.Uint64())
+					if b != balance[i] {
+						log.Printf("Got %v At ## %v ## Balance. Old=%v New=%v", holder, token.Symbol, balance[i], b)
+						err := utiles.UpdateTokenBalance(token.Symbol, holder, b)
 						if err != nil {
 							log.Printf("[refresh Token Balance]1 Update Token Balance Fail:%v\n", err)
 						}
@@ -311,8 +311,8 @@ func refreshTokenBalance(token types.TokenInfo, ch chan []string) {
 		case holders = <-ch:
 			for _, holder := range holders {
 				if b, err := queryTokenBalance(token.Address, holder); err == nil {
-					log.Printf("Got %v At ## %v ## Balance. New=%v", holder, token.Symbol, b.Uint64())
-					err := utiles.UpdateTokenBalance(token.Symbol, holder, b.Uint64())
+					log.Printf("Got %v At ## %v ## Balance. New=%v", holder, token.Symbol, b)
+					err := utiles.UpdateTokenBalance(token.Symbol, holder, b)
 					if err != nil {
 						log.Printf("[refresh Token Balance]2 Update Token Balance Fail:%v\n", err)
 					}
@@ -325,6 +325,7 @@ func refreshTokenBalance(token types.TokenInfo, ch chan []string) {
 }
 
 func init() {
+	flag.Parse()
 	var fd int
 	fmt.Print("Enter DB Password: ")
 	switch runtime.GOOS {
@@ -335,7 +336,7 @@ func init() {
 	}
 	bytePassword, err := terminal.ReadPassword(fd)
 	if err != nil {
-		fmt.Println("\nPassword typed: fail " + err.Error())
+		fmt.Println("\nPassword typed fail: "+err.Error(), "fd=", fd)
 	}
 	fmt.Println("")
 	if len(bytePassword) != 0 {

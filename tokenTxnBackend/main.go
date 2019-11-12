@@ -32,9 +32,9 @@ func init() {
 	}
 	bytePassword, err := terminal.ReadPassword(fd)
 	if err != nil {
-		fmt.Println("\nPassword typed fail: " + err.Error())
+		fmt.Println("\nPassword typed fail: "+err.Error(), "fd=", fd)
 	}
-	fmt.Println("")
+	fmt.Println("-----")
 	if len(bytePassword) != 0 {
 		*dbpwd = string(bytePassword)
 	}
@@ -47,7 +47,7 @@ func main() {
 	web.Post("/", v1.Route)
 	web.Match("OPTIONS", "/", func(ctx *web.Context) string {
 		ctx.SetHeader("Access-Control-Allow-Origin", "*", true)
-		ctx.SetHeader("Access-Control-Allow-Method", "POST", true)
+		ctx.SetHeader("Access-Control-Allow-Methods", "POST", true)
 		ctx.SetHeader("Access-Control-Allow-Headers", "accept,content-type,cookieorigin", true)
 		ctx.SetHeader("Access-Control-Allow-Credentials", "true", true)
 		return ""
