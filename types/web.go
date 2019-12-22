@@ -21,11 +21,13 @@ type TokenListParams struct {
 }
 type HolderListParams TokenListParams
 
+//HolderTokenParams HolderTokenParams
 type HolderTokenParams struct {
 	Token  string `json:"token"`
 	Holder string `json:"holder"`
 }
 
+//HolderTokenListParams HolderTokenListParams
 type HolderTokenListParams struct {
 	Token  string     `json:"token"`
 	Holder string     `json:"holder"`

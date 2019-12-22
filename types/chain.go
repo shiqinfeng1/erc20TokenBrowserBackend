@@ -7,7 +7,6 @@ type TokenInfo struct {
 	Status  string
 }
 
-//
 // TokenMetaInfo TokenMetaInfo
 type TokenMetaInfo struct {
 	Address     string `json:"address"`
