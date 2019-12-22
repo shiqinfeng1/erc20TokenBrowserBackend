@@ -26,7 +26,6 @@ type HolderTokenParams struct {
 	Holder string `json:"holder"`
 }
 
-//
 type HolderTokenListParams struct {
 	Token  string     `json:"token"`
 	Holder string     `json:"holder"`
