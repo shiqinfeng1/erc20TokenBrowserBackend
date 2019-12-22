@@ -187,6 +187,8 @@ func getTokenHolderList(id int, params string) *types.JSONRPCResponse {
 	}
 	return ResultWithPageReturns(id, holderList, page)
 }
+
+//fd
 func getHolderBalance(id int, params string) *types.JSONRPCResponse {
 	p := types.HolderTokenParams{}
 	err := json.Unmarshal([]byte(params), &p)

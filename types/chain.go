@@ -1,12 +1,13 @@
 package types
 
-// TokenInfo TokenInfo
+// TokenInfo TokenInfo  反倒是
 type TokenInfo struct {
 	Address string
 	Symbol  string
 	Status  string
 }
 
+//
 // TokenMetaInfo TokenMetaInfo
 type TokenMetaInfo struct {
 	Address     string `json:"address"`

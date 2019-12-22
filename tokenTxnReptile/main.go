@@ -111,6 +111,7 @@ func refreshTokenAddress() {
 		}
 	}
 }
+
 func checkBlockFork(symbol string, lastCheckedBlock, latestBlockNumber uint64) uint64 {
 
 	// 区块高度太低，不做检查

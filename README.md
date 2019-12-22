@@ -38,6 +38,7 @@ curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data 
 ```
 
 + 注册token
+
 ```
 curl -H "Content-Type: application/json" -X POST 'http://localhost:8090' --data '{"jsonrpc":"2.0","method":"token_register","params":"0x668df218d073f413ed2fcea0d48cfbfd59c030ae","id":1}'
 

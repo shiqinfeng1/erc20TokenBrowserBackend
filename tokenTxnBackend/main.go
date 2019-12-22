@@ -11,7 +11,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/hoisie/web"
-	"github.com/shiqinfeng1/erc20TokenBrowserBackend/tokenTxnBackend/v1"
+	v1 "github.com/shiqinfeng1/erc20TokenBrowserBackend/tokenTxnBackend/v1"
 	"github.com/shiqinfeng1/erc20TokenBrowserBackend/utiles"
 )
 
@@ -44,7 +44,9 @@ func init() {
 }
 
 func main() {
+	//
 	web.Post("/", v1.Route)
+	// 跨域设置
 	web.Match("OPTIONS", "/", func(ctx *web.Context) string {
 		ctx.SetHeader("Access-Control-Allow-Origin", "*", true)
 		ctx.SetHeader("Access-Control-Allow-Methods", "POST", true)
